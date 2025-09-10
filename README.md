@@ -27,7 +27,7 @@ This project provides a safer way to install Pi-hole by:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/pihole-wget-installer.git
+git clone https://github.com/sntxrr/pihole-wget-installer.git
 cd pihole-wget-installer
 
 # Run the installer
