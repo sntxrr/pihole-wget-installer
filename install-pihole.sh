@@ -57,6 +57,25 @@ cleanup() {
 # Set up trap to cleanup on exit
 trap cleanup EXIT
 
+# Function to convert size string (like "10M") to bytes
+convert_size_to_bytes() {
+    local size_str="$1"
+    if [[ "$size_str" =~ ^([0-9]+)([KMGkmg]?)$ ]]; then
+        local size_num="${BASH_REMATCH[1]}"
+        local size_unit="${BASH_REMATCH[2]}"
+        # Convert to lowercase using tr for compatibility
+        size_unit=$(echo "$size_unit" | tr '[:upper:]' '[:lower:]')
+        case "$size_unit" in
+            "k") echo $((size_num * 1024)) ;;
+            "m") echo $((size_num * 1024 * 1024)) ;;
+            "g") echo $((size_num * 1024 * 1024 * 1024)) ;;
+            *) echo "$size_num" ;;
+        esac
+    else
+        echo "0"
+    fi
+}
+
 # Function to check if required tools are available
 check_dependencies() {
     print_status "Checking dependencies..."
@@ -87,24 +106,18 @@ download_script() {
     
     print_status "Downloading Pi-hole installation script from $PIHOLE_INSTALL_URL..."
     
-    # Prepare wget options based on configuration
+    # Use only universally supported wget options
     local wget_opts=()
     wget_opts+=("--timeout=$DOWNLOAD_TIMEOUT")
     wget_opts+=("--tries=$NETWORK_RETRIES")
-    wget_opts+=("--max-filesize=$MAX_DOWNLOAD_SIZE")
-    wget_opts+=("--progress=bar:force")
     
-    if [[ "$VERIFY_SSL" == "true" ]]; then
-        wget_opts+=("--check-certificate")
-    else
+    # SSL verification - these options are widely supported
+    if [[ "$VERIFY_SSL" != "true" ]]; then
         wget_opts+=("--no-check-certificate")
         print_warning "SSL certificate verification is disabled"
     fi
     
-    # Add user agent
-    wget_opts+=("--user-agent=Pi-hole-Installer-wget/1.0")
-    
-    # Perform download with enhanced error handling
+    # Perform download with error handling
     if ! wget "${wget_opts[@]}" -O "$TEMP_DIR/$SCRIPT_NAME" "$PIHOLE_INSTALL_URL"; then
         print_error "Failed to download Pi-hole installation script"
         
@@ -124,10 +137,19 @@ download_script() {
         print_status "Download completed successfully."
     fi
     
-    # Check file size
+    # Check file size using cross-platform approach
     local file_size
-    file_size=$(stat -f%z "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null || stat -c%s "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null)
+    file_size=$(stat -f%z "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null || stat -c%s "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null || wc -c < "$TEMP_DIR/$SCRIPT_NAME")
     print_status "Downloaded file size: $file_size bytes"
+    
+    # Check if file size exceeds limit
+    local max_size_bytes
+    max_size_bytes=$(convert_size_to_bytes "$MAX_DOWNLOAD_SIZE")
+    
+    if [[ "$max_size_bytes" -gt 0 ]] && [[ "$file_size" -gt "$max_size_bytes" ]]; then
+        print_error "Downloaded file too large: $file_size bytes (max: $max_size_bytes bytes)"
+        exit 1
+    fi
 }
 
 # Function to verify the downloaded script

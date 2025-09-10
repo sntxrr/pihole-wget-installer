@@ -21,6 +21,7 @@ This project provides a safer way to install Pi-hole by:
 - ✅ **Backup URL Support**: Fallback to alternative download sources
 - ✅ **SSL Verification**: Configurable certificate validation
 - ✅ **Error Handling**: Comprehensive error reporting and recovery
+- ✅ **Universal Compatibility**: Works with all wget versions across different systems
 
 ## Quick Start
 
@@ -189,6 +190,12 @@ make clean
 # Override compatibility check
 echo "CHECK_SYSTEM_COMPATIBILITY=false" > ~/.pihole-installer.conf
 ```
+
+**wget Version Compatibility**:
+The script automatically adapts to different wget versions by:
+- Using only universally supported options (--timeout, --tries, --no-check-certificate)
+- Implementing manual file size checking for older wget versions
+- Providing cross-platform file size detection (BSD/GNU stat compatibility)
 
 ### Debug Mode
 
